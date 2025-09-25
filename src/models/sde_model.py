@@ -12,7 +12,7 @@ class FourTankSDE:
     Parameters: pipe areas, tank areas, flow splits, gravity, density
     """
 
-    def __init__(self, params, measurement_noise_std, x0=None):
+    def __init__(self, params: dict, measurement_noise_std: float, x0: np.ndarray = None):
         """
         Initialize the four-tank system.
 

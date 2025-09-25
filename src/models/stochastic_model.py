@@ -36,23 +36,25 @@ class FourTankStochastic:
 
     def dynamics(self, t, x, u, d=None):
         """
-        Compute the derivatives of the system states.
+        Deterministic dynamics in the form: ẋ(t) = f(x(t),u(t),d(t),p)
+        
+        Compute the derivatives of the system states for piecewise constant disturbances.
 
         Parameters
         ----------
         t : float
             Current time (required by ODE solvers)
         x : ndarray, shape (4,)
-            Current states (mass in tanks)
+            Current states (mass in tanks) 
         u : ndarray, shape (2,)
             Manipulated variables (pump flows)
         d: ndarray, shape (2,), optional
-            Disturbance variables (unmeasured flows). Defaults to zeros.
+            Piecewise constant disturbance variables d(t) = dk for tk≤t<tk+1. Defaults to zeros.
 
         Returns
         -------
         xdot : ndarray, shape (4,)
-            Time derivatives of the states
+            Time derivatives ẋ(t) = f(x(t),u(t),d(t),p)
         """
         a = self.params[:4]
         A = self.params[4:8]
@@ -90,7 +92,9 @@ class FourTankStochastic:
     
     def measurement(self, x):
         """
-        Compute the measurements from the states. Includes measurement noise.
+        Measurement model: y(t) = g(x(t),p) + v(t) with v(t) ~ N(0,Rvv(p))
+        
+        Compute the measurements from the states with Gaussian measurement noise.
 
         Parameters
         ----------
@@ -100,23 +104,45 @@ class FourTankStochastic:
         Returns
         -------
         y : ndarray, shape (4,)
-            Measurements (heights in tanks)
+            Noisy measurements y(t) = g(x(t),p) + v(t) where g maps states to heights
         """
         A = self.params[4:8]
         rho = self.params[11]
+        
+        # g(x(t),p): deterministic measurement function (mass to height)
         h = x / (rho * A)
         
-        # Measurement Noise
-        v = np.random.normal(0, self.measurement_noise_std, size=4) # measurement noise for all tanks
+        # v(t) ~ N(0, Rvv(p)): measurement noise
+        Rvv = (self.measurement_noise_std ** 2) * np.eye(4)  # Rvv(p) covariance matrix
+        v = np.random.multivariate_normal(np.zeros(4), Rvv)  # v(t) ~ N(0,Rvv(p))
+        
+        # y(t) = g(x(t),p) + v(t)
         y = h + v
         return y
 
     def output(self, x):
         """
-        Compute the outputs from the states.
+        Output model: z(t) = h(x(t),p)
+        
+        Compute the deterministic outputs from the states (no measurement noise).
+        
+        Parameters
+        ----------
+        x : ndarray, shape (4,)
+            Current states (mass in tanks)
+            
+        Returns
+        -------
+        z : ndarray, shape (2,)
+            Deterministic outputs z(t) = h(x(t),p) (heights of first two tanks)
         """
-        outputs = self.measurement(x)[:2]  # Heights of the first two tanks
-        return outputs
+        A = self.params[4:8]
+        rho = self.params[11]
+        
+        # h(x(t),p): deterministic output function (mass to height, first two tanks only)
+        heights = x / (rho * A)
+        z = heights[:2]  # Only first two tanks as outputs
+        return z
 
     def get_initial_state(self):
         """Return the initial state of the system."""
