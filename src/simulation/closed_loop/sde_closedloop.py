@@ -9,7 +9,7 @@ import os
 sys.path.append(os.path.join(os.path.dirname(__file__), '..', '..'))
 sys.path.append(os.path.join(os.path.dirname(__file__), '..', '..', '..'))
 
-from models.nonlinear_model import FourTankNonlinear
+from models.sde_model import FourTankSDE
 from utils import create_piecewise_cnst_seq
 
 #===============================
@@ -36,7 +36,7 @@ params = np.array([
 #===============================
 
 # Time
-T = 200  # total simulation time [s]
+T = 20  # total simulation time [s]
 dt = 0.01  # time step [s]
 time = np.arange(0, T, dt)
 
@@ -44,14 +44,18 @@ time = np.arange(0, T, dt)
 x0 = np.array([500, 500, 500, 500])  # initial mass in tanks [g]
 
 # Initialize model
-measurement_noise_std = 10  # Standard deviation for measurement noise [cm]
-model = FourTankNonlinear(params, x0)
-
-# Piecewise constant disturbances F3 and F4: d(t) = dk for tk≤t<tk+1 
-d_seq = create_piecewise_cnst_seq(num_inputs=2, total_time=T, dt=dt, min_val=200, max_val=400, step_resolution=10, number_of_steps=5)
+measurement_noise_std = 0  # Standard deviation for measurement noise [cm]
+disturbance_noise_std = 50  # Standard deviation for disturbance noise [cm^3/s]
+model = FourTankSDE(params, measurement_noise_std, disturbance_noise_std, x0)
                                     
-# Piecewise constant input sequence (random steps)
-u_seq = create_piecewise_cnst_seq(num_inputs=2, total_time=T, dt=dt, min_val=200, max_val=400, step_resolution=10, number_of_steps=1)
+# Reference setpoints for the tanks (heights in cm) to track Z (output)
+setpoints = np.array([20, 15])  # Desired heights for tank 1 and tank 2 [cm]
+
+# PID control parameters
+Kp = 1.0  # Proportional gain
+Ki = 0.1  # Integral gain
+Kd = 0.05  # Derivative gain
+umax = 400  # Maximum flow rate for pumps [cm^3/s]
 
 # Results storage
 x_history = []
@@ -71,8 +75,6 @@ x_current = x0.copy()
 for k in range(len(time)):
     # Store results
     x_history.append(x_current.copy())
-    u_history.append(u_seq[:, k])
-    d_history.append(d_seq[:, k])
     
     # Generate measurements and outputs
     y_k = model.measurement(x_current)  # y(t) = g(x(t),p) + v(t)
@@ -80,15 +82,32 @@ for k in range(len(time)):
     y_history.append(y_k)
     z_history.append(z_k)
     
+    # PID
+    error = setpoints - z_k
+    if k == 0:
+        integral = error * dt
+        derivative = 0
+        previous_error = error
+    else:
+        integral += error * dt
+        derivative = (error - previous_error) / dt
+        previous_error = error
+    u_k = Kp * error + Ki * integral + Kd * derivative
+    u_k = np.clip(u_k, 0, umax, out=u_k)
+    
     # Simulate one step: ẋ(t) = f(x(t),u(t),d(t),p)
-    dxdt = model.dynamics(time[k], x_current, u_seq[:, k], d_seq[:, k])
-    x_next = x_current + dxdt * dt
+    #dxdt = model.dynamics(time[k], x_current, u_seq[:, k], d_seq[:, k])
+    dx, d  = model.dynamics(time[k], x_current, u_k, dt)
+    x_next = x_current + dx
     
     # Update state
     x_current = x_next
     h = x_current / (params[4:8] * params[11])  # Heights
     q = params[0:4] * np.sqrt(2 * params[10] * h)  # Outflows
+    
     q_history.append(q)
+    d_history.append(d)
+    u_history.append(u_k)
 
 #===============================
 # PLOTTING

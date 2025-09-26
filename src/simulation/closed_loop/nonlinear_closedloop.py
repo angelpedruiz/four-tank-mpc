@@ -49,13 +49,19 @@ model = FourTankNonlinear(params, x0)
 
 # Piecewise constant disturbances F3 and F4: d(t) = dk for tk≤t<tk+1 
 d_seq = create_piecewise_cnst_seq(num_inputs=2, total_time=T, dt=dt, min_val=200, max_val=400, step_resolution=10, number_of_steps=5)
-                                    
-# Piecewise constant input sequence (random steps)
-u_seq = create_piecewise_cnst_seq(num_inputs=2, total_time=T, dt=dt, min_val=200, max_val=400, step_resolution=10, number_of_steps=1)
+
+# Reference setpoints for the tanks (heights in cm) to track Z (output)
+setpoints = np.array([20, 15])  # Desired heights for tank 1 and tank 2 [cm]
+
+# PID control parameters
+Kp = 1.0  # Proportional gain
+Ki = 0.1  # Integral gain
+Kd = 0.05  # Derivative gain
+umax = 400  # Maximum flow rate for pumps [cm^3/s]
 
 # Results storage
 x_history = []
-u_history = []
+u_history = [] # shape (N, 2)
 d_history = []
 y_history = []  # Noisy measurements: y(t) = g(x(t),p) + v(t)
 z_history = []  # Deterministic outputs: z(t) = h(x(t),p)
@@ -71,7 +77,6 @@ x_current = x0.copy()
 for k in range(len(time)):
     # Store results
     x_history.append(x_current.copy())
-    u_history.append(u_seq[:, k])
     d_history.append(d_seq[:, k])
     
     # Generate measurements and outputs
@@ -80,8 +85,21 @@ for k in range(len(time)):
     y_history.append(y_k)
     z_history.append(z_k)
     
+    # PID control
+    error = setpoints - z_k
+    if k == 0:
+        integral = np.zeros_like(error)
+        derivative = np.zeros_like(error)
+        previous_error = error
+    else:
+        integral += error * dt
+        derivative = (error - previous_error) / dt
+        previous_error = error
+    u_k = Kp * error + Ki * integral + Kd * derivative
+    u_k = np.clip(u_k, 0, umax, out=u_k)
+    
     # Simulate one step: ẋ(t) = f(x(t),u(t),d(t),p)
-    dxdt = model.dynamics(time[k], x_current, u_seq[:, k], d_seq[:, k])
+    dxdt = model.dynamics(time[k], x_current, u_k, d_seq[:, k])
     x_next = x_current + dxdt * dt
     
     # Update state
@@ -89,6 +107,7 @@ for k in range(len(time)):
     h = x_current / (params[4:8] * params[11])  # Heights
     q = params[0:4] * np.sqrt(2 * params[10] * h)  # Outflows
     q_history.append(q)
+    u_history.append(u_k) 
 
 #===============================
 # PLOTTING
