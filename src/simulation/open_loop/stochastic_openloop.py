@@ -36,7 +36,7 @@ params = np.array([
 #===============================
 
 # Time
-T = 20  # total simulation time [s]
+T = 200  # total simulation time [s]
 dt = 0.01  # time step [s]
 time = np.arange(0, T, dt)
 
@@ -47,22 +47,23 @@ x0 = np.array([500, 500, 500, 500])  # initial mass in tanks [g]
 measurement_noise_std = 10  # Standard deviation for measurement noise [cm]
 model = FourTankStochastic(params, measurement_noise_std, x0)
 
+# Piecewise constant disturbances F3 and F4: d(t) = dk for tk≤t<tk+1 
+d_seq = create_piecewise_cnst_seq(num_inputs=2, total_time=T, dt=dt, min_val=200, max_val=400, step_resolution=10, number_of_steps=5)
+                                    
+# Piecewise constant input sequence (random steps)
+u_seq = create_piecewise_cnst_seq(num_inputs=2, total_time=T, dt=dt, min_val=200, max_val=400, step_resolution=10, number_of_steps=1)
+
 # Results storage
 x_history = []
 u_history = []
 d_history = []
 y_history = []  # Noisy measurements: y(t) = g(x(t),p) + v(t)
 z_history = []  # Deterministic outputs: z(t) = h(x(t),p)
+q_history = []  # flowrates
 
 #===============================
 # SIMULATION
 #===============================
-
-# Piecewise constant disturbances F3 and F4: d(t) = dk for tk≤t<tk+1 
-d_seq = create_piecewise_cnst_seq(num_inputs=2, total_time=T, dt=dt, min_val=200, max_val=400, step_resolution=10, number_of_steps=5)
-                                    
-# Piecewise constant input sequence (random steps)
-u_seq = create_piecewise_cnst_seq(num_inputs=2, total_time=T, dt=dt, min_val=200, max_val=400, step_resolution=10, number_of_steps=1)
 
 # Initialize current state
 x_current = x0.copy()
@@ -80,11 +81,15 @@ for k in range(len(time)):
     z_history.append(z_k)
     
     # Simulate one step: ẋ(t) = f(x(t),u(t),d(t),p)
-    dxdt = model.dynamics(time[k], x_current, u_seq[:, k], d_seq[:, k])
+    #dxdt = model.dynamics(time[k], x_current, u_seq[:, k], d_seq[:, k])
+    dxdt = model.dynamics(time[k], x_current, u_seq[:, k], None)
     x_next = x_current + dxdt * dt
     
     # Update state
     x_current = x_next
+    h = x_current / (params[4:8] * params[11])  # Heights
+    q = params[0:4] * np.sqrt(2 * params[10] * h)  # Outflows
+    q_history.append(q)
 
 #===============================
 # PLOTTING
@@ -96,6 +101,7 @@ u_history = np.array(u_history)
 d_history = np.array(d_history)
 y_history = np.array(y_history)  # Measurements with noise
 z_history = np.array(z_history)  # Deterministic outputs
+q_history = np.array(q_history)  # Outflow rates
 
 # Create subplots - 4 plots in 2x2 grid
 fig, axes = plt.subplots(2, 2, figsize=(12, 8))
@@ -107,6 +113,7 @@ axes[0, 0].plot(time, y_history[:, 1], 'r-', linewidth=2, label='Tank 2')
 axes[0, 0].plot(time, y_history[:, 2], 'g-', linewidth=2, label='Tank 3')
 axes[0, 0].plot(time, y_history[:, 3], 'm-', linewidth=2, label='Tank 4')
 axes[0, 0].set_title('State Evolution (Noisy Measurements)')
+axes[0, 0].set_xlabel('Time [s]')
 axes[0, 0].set_ylabel('Height [cm]')
 axes[0, 0].legend()
 axes[0, 0].grid(True)
@@ -115,6 +122,7 @@ axes[0, 0].grid(True)
 axes[0, 1].plot(time, u_history[:, 0], 'r-', linewidth=2, label='Pump 1')
 axes[0, 1].plot(time, u_history[:, 1], 'g-', linewidth=2, label='Pump 2')
 axes[0, 1].set_title('Action Evolution')
+axes[0, 1].set_xlabel('Time [s]')
 axes[0, 1].set_ylabel('Flow Rate [cm³/s]')
 axes[0, 1].legend()
 axes[0, 1].grid(True)
@@ -142,6 +150,14 @@ axes[1, 1].grid(True)
 plt.tight_layout()
 plt.show()
 
+plt.plot(time, q_history)
+plt.title('Outflow Rates from Tanks')
+plt.xlabel('Time [s]')
+plt.ylabel('Outflow Rate [cm³/s]')
+plt.legend(['Tank 1', 'Tank 2', 'Tank 3', 'Tank 4'])
+plt.grid(True)
+plt.show()
+
 # Print final states and demonstrate all model components
 print(f"\nStochastic Nonlinear Model Simulation completed!")
 print(f"Model components implemented:")
@@ -150,7 +166,3 @@ print(f"2. Measurement model: y(t) = g(x(t),p) + v(t) with v(t) ~ N(0,Rvv(p))")
 print(f"3. Output model: z(t) = h(x(t),p)")
 print(f"4. Piecewise constant disturbances: d(t) = dk for tk≤t<tk+1")
 print(f"\nFinal results:")
-print(f"Final tank masses [g]: {x_current}")
-print(f"Final noisy measurements y(t) [cm]: {model.measurement(x_current)}")  
-print(f"Final deterministic outputs z(t) [cm]: {model.output(x_current)}")
-print(f"Final disturbances d(t) [cm³/s]: {d_seq[:, -1]}")
