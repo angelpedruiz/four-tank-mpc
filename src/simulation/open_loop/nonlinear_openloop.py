@@ -18,9 +18,9 @@ from utils.piecewise import piecewise_constant, piecewise_random
 # SIMULATION FUNCTION
 #===============================
 
-def simulate_nonlinear(time, x0, u_seq, d_seq, params, model, dt):
+def simulate_nonlinear(time, model, x0, u_seq, d_seq, params, dt):
     """
-    Run nonlinear open-loop simulation of the four-tank system.
+    Run open-loop simulation of the non-linear four-tank system model.
 
     Parameters:
     -----------
@@ -75,7 +75,7 @@ def simulate_nonlinear(time, x0, u_seq, d_seq, params, model, dt):
         z_history.append(z_k)
 
         # Simulate one step: ẋ(t) = f(x(t),u(t),d(t),p)
-        dxdt = model.dynamics(time[k], x_current, u_seq[k, :], d_seq[k, :])
+        dxdt = model.dynamics(x_current, u_seq[k, :], d_seq[k, :])
         x_next = x_current + dxdt * dt
 
         # Update state

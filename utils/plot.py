@@ -112,48 +112,55 @@ def plot_outflow_rates(results):
     return fig, ax
 
 
-def plot_normalized_steps(results_list, step_magnitudes_list, labels=None, title="Normalized Step Responses"):
+def plot_normalized_steps(results_list, step_magnitudes_list, noise_label):
     """
-    Plot normalized step responses for multiple simulations.
+    Plot normalized step responses for one noise level.
 
-    Args:
-        results_list: list of results dictionaries (each like your simulation output)
-        step_magnitudes_list: list of step magnitudes (Δu) corresponding to each results dict
-                             Can be either:
-                             - scalar value: same step magnitude applied to all inputs
-                             - array of size (num_inputs,): step magnitude per input
-        labels: optional list of labels for each step (e.g., ['10%', '25%', '50%'])
+    Parameters
+    ----------
+    results_list : list
+        List of simulation results, each containing time and output arrays.
+        Each element expected to have {'time': t, 'y': y}, where y has shape (n_outputs, len(t)).
+    step_magnitudes_list : list of float
+        Percentages of step changes (e.g. [10, 25, 50]).
+    noise_label : str
+        Label of the current noise level (e.g., 'Low Noise').
     """
-    num_plots = results_list[0]['y_history'].shape[1]  # number of outputs
 
-    for i in range(num_plots):
-        plt.figure(figsize=(10, 5))
-        for j, results in enumerate(results_list):
-            time = results['time']
-            y = np.array(results['y_history'])
+    num_inputs = 2
+    num_outputs = 4
+    num_steps = len(step_magnitudes_list)
 
-            delta_u = step_magnitudes_list[j]
+    fig, axes = plt.subplots(num_inputs, num_outputs, figsize=(16, 6), sharex=True)
+    fig.suptitle(f'Normalized Step Responses — {noise_label}', fontsize=14, fontweight='bold')
 
-            # Convert to scalar if it's an array with identical elements
-            if isinstance(delta_u, (list, np.ndarray)):
-                delta_u_arr = np.array(delta_u)
-                if delta_u_arr.ndim > 0:
-                    # If all elements are the same, use the first one
-                    if np.allclose(delta_u_arr, delta_u_arr[0]):
-                        delta_u = delta_u_arr[0]
-                    else:
-                        # Multiple different step magnitudes - average them for overall normalization
-                        delta_u = np.mean(delta_u_arr)
+    # Ensure results correspond to [u1_10%, u1_25%, u1_50%, u2_10%, u2_25%, u2_50%]
+    results_arr = np.array(results_list, dtype=object).reshape(num_inputs, num_steps)
 
-            y0 = y[0, :]
-            y_norm = (y - y0) / delta_u  # normalized step response
+    for i_in in range(num_inputs):           # Input index (u1, u2)
+        for j_out in range(num_outputs):     # Output index (y1–y4)
+            ax = axes[i_in, j_out]
+            for k_step, p in enumerate(step_magnitudes_list):
+                res = results_arr[i_in, k_step]
+                t = res['time']
+                y = res['y_history'][:, j_out]
 
-            label = labels[j] if labels is not None else f'Step {j+1}'
-            plt.plot(time, y_norm[:, i], label=label)
+                # Normalize: divide by max absolute change (step response)
+                y_norm = (y - y[0]) / abs(y[-1] - y[0]) if abs(y[-1] - y[0]) > 1e-6 else y - y[0]
+                ax.plot(t, y_norm, label=f'{p}% step')
 
-        plt.xlabel("Time [s]")
-        plt.ylabel(f"Normalized Output y{i+1} / Δu")
-        plt.title(f"Normalized Step Response of Output y{i+1}")
-        plt.grid(True)
-        plt.legend()
-        plt.show()
+            ax.set_title(f'Input {i_in+1} → Output {j_out+1}', fontsize=10)
+            if i_in == num_inputs - 1:
+                ax.set_xlabel('Time [s]')
+            if j_out == 0:
+                ax.set_ylabel('Normalized Response')
+
+            ax.grid(True, alpha=0.3)
+
+    # Legend only once
+    handles, labels = axes[0, 0].get_legend_handles_labels()
+    fig.legend(handles, labels, loc='upper right', bbox_to_anchor=(0.95, 0.95))
+
+    plt.tight_layout(rect=[0, 0, 0.97, 0.95])
+    plt.show()
+

@@ -18,7 +18,7 @@ from utils.piecewise import piecewise_constant
 # SIMULATION FUNCTION
 #===============================
 
-def simulate_sde(time, u_seq, d_seq, model, dt):
+def simulate_sde(time, x0: np.ndarray, u_seq: np.ndarray, d_seq: np.ndarray, model: FourTankSDE, dt: float):
     """
     Run SDE open-loop simulation of the four-tank system.
 
@@ -50,7 +50,6 @@ def simulate_sde(time, u_seq, d_seq, model, dt):
 
     # Extract parameters and initial state from model
     params = model.params
-    x0 = model.x0
     correlation_time = model.correlation_time
 
     # Results storage

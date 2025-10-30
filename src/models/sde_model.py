@@ -12,7 +12,7 @@ class FourTankSDE:
     Parameters: pipe areas, tank areas, flow splits, gravity, density
     """
 
-    def __init__(self, params: np.ndarray, measurement_noise_std: float, disturbance_noise_std: float, correlation_time: float = 1.0, x0: np.ndarray = None):
+    def __init__(self, params: np.ndarray, dt: float, measurement_noise_std: float, disturbance_noise_std: float, correlation_time: float = 1.0):
         """
         Initialize the four-tank SDE system.
 
@@ -35,7 +35,6 @@ class FourTankSDE:
             Initial states (mass in each tank). Defaults to zeros.
         """
         self.params = params
-        self.x0 = x0 if x0 is not None else np.zeros(4)
         self.measurement_noise_std = measurement_noise_std
         self.disturbance_noise_std = disturbance_noise_std
         self.correlation_time = correlation_time
@@ -191,7 +190,3 @@ class FourTankSDE:
         heights = x / (rho * A)
         z = heights[:2]  # Only first two tanks as outputs
         return z
-
-    def get_initial_state(self):
-        """Return the initial state of the system."""
-        return self.x0

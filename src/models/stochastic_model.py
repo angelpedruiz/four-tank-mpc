@@ -12,7 +12,7 @@ class FourTankStochastic:
     Parameters: pipe areas, tank areas, flow splits, gravity, density
     """
 
-    def __init__(self, params, measurement_noise_std, x0=None):
+    def __init__(self, params: dict, x0=None, dt: float=0.01, measurement_noise_std: float=0.0):
         """
         Initialize the four-tank system.
 
@@ -27,16 +27,19 @@ class FourTankStochastic:
                 params[11]    -> density rho [g/cm^3]
         x0 : ndarray, shape (4,), optional
             Initial states (mass in each tank). Defaults to zeros.
-        noise : dict
-            Dictionary containing 'process' and 'measurement' noise characteristics.
+        dt : float, optional
+            Time step for the simulation. Default is 0.01 s.
+        measurement_noise_std : float
+            Standard deviation of the measurement noise.
         """
         self.params = params
         self.x0 = x0 if x0 is not None else np.zeros(4)
+        self.dt = dt
         self.measurement_noise_std = measurement_noise_std
 
-    def dynamics(self, t, x, u, d=None):
+    def dynamics(self, x, u, d=None):
         """
-        Deterministic dynamics in the form: ẋ(t) = f(x(t),u(t),d(t),p)
+        Deterministic dynamics in the form: dx = f(x(t),u(t),d(t),p) dt
         
         Compute the derivatives of the system states for piecewise constant disturbances.
 
@@ -142,7 +145,3 @@ class FourTankStochastic:
         heights = x / (rho * A)
         z = heights[:2]  # Only first two tanks as outputs
         return z
-
-    def get_initial_state(self):
-        """Return the initial state of the system."""
-        return self.x0

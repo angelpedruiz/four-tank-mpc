@@ -10,7 +10,7 @@ class FourTankNonlinear:
     Parameters: pipe areas, tank areas, flow splits, gravity, density
     """
 
-    def __init__(self, params, x0=None):
+    def __init__(self, params: dict, x0=None, dt: float=0.01):
         """
         Initialize the four-tank system.
 
@@ -28,10 +28,11 @@ class FourTankNonlinear:
         """
         self.params = params
         self.x0 = x0 if x0 is not None else np.zeros(4)
+        self.dt = dt
 
-    def dynamics(self, t, x, u, d=None):
+    def dynamics(self, x: np.ndarray, u: np.ndarray, d: np.ndarray=None) -> np.ndarray:
         """
-        Compute the derivatives of the system states.
+        Compute the derivatives of the system states. dx = f(x,u,d,p)dt
 
         Parameters
         ----------
@@ -84,7 +85,7 @@ class FourTankNonlinear:
     
     def measurement(self, x):
         """
-        Compute the measurements from the states.
+        Compute the measurements from the states. y = g(x,p)
 
         Parameters
         ----------
@@ -103,12 +104,8 @@ class FourTankNonlinear:
     
     def output(self, x):
         """
-        Compute the outputs from the states.
+        Compute the outputs from the states. z = h(x,p)
         """
         outputs = self.measurement(x)[:2]  # Heights of the first two tanks
         return outputs
-
-    def get_initial_state(self):
-        """Return the initial state of the system."""
-        return self.x0
 
