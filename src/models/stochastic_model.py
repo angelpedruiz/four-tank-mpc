@@ -62,18 +62,17 @@ class FourTankStochastic:
         g = self.params[10]
         rho = self.params[11]
         
+        F1 = u[0]
+        F2 = u[1]
+        F3 = d[0]
+        F4 = d[1]
         
         # Inflows
         qin = np.zeros(4)
-        qin[0] = gamma[0] * u[0]
-        qin[1] = gamma[1] * u[1]
-        qin[2] = (1 - gamma[1]) * u[1]
-        qin[3] = (1 - gamma[0]) * u[0]
-        
-        # Add disturbances if provided
-        if d is not None:
-            qin[2] += d[0] # F3
-            qin[3] += d[1] # F4
+        qin[0] = gamma[0] * F1
+        qin[1] = gamma[1] * F2
+        qin[2] = (1 - gamma[1]) * F2
+        qin[3] = (1 - gamma[0]) * F1
 
         # Heights
         h = x / (rho * A)
@@ -85,8 +84,8 @@ class FourTankStochastic:
         xdot = np.zeros(4)
         xdot[0] = rho * (qin[0] + qout[2] - qout[0])
         xdot[1] = rho * (qin[1] + qout[3] - qout[1])
-        xdot[2] = rho * (qin[2] - qout[2])
-        xdot[3] = rho * (qin[3] - qout[3])
+        xdot[2] = rho * (qin[2] - qout[2] + F3)
+        xdot[3] = rho * (qin[3] - qout[3] + F4)
 
         return xdot
     

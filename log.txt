@@ -1,0 +1,2 @@
+fix stocahstic model: same rate as dt so len(d_seq) = len(time)
+fix SDE model: disturbance same fixed 
